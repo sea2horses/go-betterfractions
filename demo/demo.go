@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
 
 	frac "github.com/sea2horses/go-betterfractions"
+	fraction "github.com/sea2horses/go-betterfractions"
 )
 
 func mustNew(n, d int64) frac.Fraction {
@@ -22,7 +24,7 @@ func main() {
 	fmt.Printf("a = %s\nb = %s\n\n", a, b)
 
 	// Parse
-	p, err := frac.Parse(" -6/ 8 ")
+	p, err := frac.ParseFracString(" -6/ 8 ")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,7 +68,18 @@ func main() {
 	fmt.Printf("%s >= %s ? %v\n\n", sum, c, sum.GreaterEq(c))
 
 	// Float conversion
-	fmt.Printf("%s as float64 = %g\n\n", c, c.Float64())
+	conv_list := []string{"-0.3", "0.2"}
+
+	for _, c := range conv_list {
+		f, err := strconv.ParseFloat(c, 64)
+		if err != nil {
+			fmt.Printf("Could not parse '%s' to float", c)
+		}
+		fmt.Printf("%s as float = %g\n", c, f)
+
+		conv, _ := fraction.FromFloat64(f)
+		fmt.Printf("%s as fraction = %s\n\n", c, conv.String())
+	}
 
 	// Zero, negate, abs
 	z := frac.NewI(0)

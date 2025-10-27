@@ -95,6 +95,7 @@ func NewI[T integer](numerator T) Fraction {
 // floats can represent are bigger than what this fraction type that uses int64 internally can; in that case,
 // ErrOutOfRange will be returned. Also keep in mind that floats usually represent approximations to a number; this
 // function will try to approximate it as much as possible, but some precision may be lost.
+// WARNING: Due to how floating point works, you may see some strange results like -0.3 becoming -5404319552844595/18014398509481984, for better control over parsing, you can use FromDecimalString to correctly get -3/10 or advise the user to write in fraction form
 //
 // If a NaN is provided, ErrInvalid will be returned.
 func FromFloat64(f float64) (Fraction, error) {
@@ -153,6 +154,136 @@ func FromFloat64(f float64) (Fraction, error) {
 		numerator *= -1
 	}
 	return New(numerator, denominator)
+}
+
+// FromFloat64Approx returns a reduced fraction ~= f with denominator <= maxDen.
+// It uses continued fractions (convergents). If f is NaN or maxDen==0, returns ErrInvalid.
+// This function is specially useful since some floating points are not stored exactly in binary,
+// if you want -0.3 to become -3/10 and not -5404319552844595/18014398509481984, use this function or
+// alternatively, use the ParseDecimal() function which more accurately translates a decimal
+// number into a fraction or the Parse() function which also coverts fraction strings like "3/2"
+func FromFloat64Approx(f float64, maxDen uint64) (Fraction, error) {
+	if math.IsNaN(f) || maxDen == 0 {
+		return zeroValue, ErrInvalid
+	}
+	if f == 0 {
+		return zeroValue, nil
+	}
+	neg := f < 0
+	if neg {
+		f = -f
+	}
+
+	// Continued fraction expansion
+	// p/q are the current convergent, pPrev/qPrev the previous
+	var pPrev, qPrev uint64 = 0, 1
+	var p, q uint64 = 1, 0
+
+	x := f
+	for range 1000 { // safety bound
+		a := uint64(math.Floor(x))
+		// next convergent = a*(p/q) + (pPrev/qPrev)
+		// new p = a*p + pPrev ; new q = a*q + qPrev (check overflow)
+		if a != 0 {
+			if p > math.MaxUint64/a || q > math.MaxUint64/a {
+				break // overflow if we take this step; stop at previous
+			}
+		}
+		newP := a*p + pPrev
+		newQ := a*q + qPrev
+		if newQ == 0 || newQ > maxDen {
+			break
+		}
+		pPrev, qPrev = p, q
+		p, q = newP, newQ
+
+		fracPart := x - float64(a)
+		if fracPart == 0 {
+			break
+		}
+		x = 1.0 / fracPart
+	}
+
+	// p/q is our convergent
+	res := Fraction{numerator: p, denominator: q, negative: neg}.normalize()
+	return res, nil
+}
+
+// Parses a string either containing a fraction or a decimal number into
+// the fraction struct
+// Makes use of ParseFracString and ParseDecimal under the hood
+func Parse(s string) (Fraction, error) {
+	if strings.Contains(s, "/") {
+		return ParseFracString(s)
+	} else {
+		return ParseDecimal(s)
+	}
+}
+
+// ParseDecimal translates the string of a decimal number into a fraction
+// -0.3 returns -3/10
+// 0.2 returns 2/10
+// 2.5 returns 5/2
+func ParseDecimal(s string) (Fraction, error) {
+	// Trim leftover spaces
+	str := strings.TrimSpace(s)
+	negative := false
+
+	// Get the sign
+	if str[0] == '-' {
+		negative = true
+		// Remove negative sign
+		str = str[1:]
+	}
+
+	// Now get both parts of the number
+	parts := strings.Split(str, ".")
+
+	if len(parts) > 2 {
+		return zeroValue, errors.New("too much dots")
+	}
+
+	var lhs uint64
+
+	if parts[0] == "" {
+		return zeroValue, errors.New("no leading numeral at left hand side of decimal")
+	}
+
+	fmt.Println("Parsing LHS")
+	lhs, err := strconv.ParseUint(parts[0], 10, 64)
+
+	if err != nil {
+		return zeroValue, err
+	}
+
+	fmt.Println("LHS Parsed")
+
+	if len(parts) == 1 {
+
+		fmt.Println("Only numerator")
+		return Fraction{
+			numerator:   lhs,
+			denominator: 1,
+			negative:    negative,
+		}, err
+	}
+
+	fmt.Println("Parsing RHS")
+	rhs, err := strconv.ParseUint(parts[1], 10, 64)
+	if err != nil {
+		return zeroValue, err
+	}
+
+	fmt.Println("RHS Parsed")
+
+	fmt.Println("Getting fractional...")
+	fracpart, err := New(rhs, uint64(math.Pow(10, float64(getintsize(rhs)))))
+	fmt.Printf("Fractional obtained: %s\n", fracpart.String())
+	if err != nil {
+		return zeroValue, err
+	}
+
+	return NewI(lhs).Add(fracpart)
 }
 
 // Fast Addition module when both fractions denominators are the same
@@ -444,9 +575,9 @@ func (f Fraction) LessEq(g Fraction) bool    { return f.Cmp(g) <= 0 }
 func (f Fraction) Greater(g Fraction) bool   { return f.Cmp(g) > 0 }
 func (f Fraction) GreaterEq(g Fraction) bool { return f.Cmp(g) >= 0 }
 
-// Parse a string to a fraction
+// ParseFracString a string to a fraction
 // This can return ErrInvalid if parsing was unsuccesful or ErrZeroDenominator if the denominator is, well, zero
-func Parse(str string) (Fraction, error) {
+func ParseFracString(str string) (Fraction, error) {
 	s := strings.TrimSpace(str)
 
 	if s == "" {
@@ -545,4 +676,17 @@ func cmp128(xhi, xlo, yhi, ylo uint64) int {
 		return 1
 	}
 	return 0
+}
+
+func getintsize(i uint64) uint8 {
+	if i == 0 {
+		return 1
+	}
+
+	var size uint8 = 0
+	for c := i; c > 0; c /= 10 {
+		size += 1
+	}
+
+	return size
 }

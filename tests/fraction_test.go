@@ -1,6 +1,7 @@
 package fraction_test
 
 import (
+	"fmt"
 	"testing"
 
 	frac "github.com/sea2horses/go-betterfractions"
@@ -160,6 +161,45 @@ func TestNegateAndAbs(t *testing.T) {
 	}
 }
 
+// func TestFromFloat64(t *testing.T) {
+// 	cases := map[float64]frac.Fraction{
+// 		-0.3: mustNew(t, 3, 10),
+// 		0.2:  mustNew(t, 2, 10),
+// 		0.5:  mustNew(t, 1, 2),
+// 	}
+
+// 	for k, want := range cases {
+// 		conv, err := frac.FromFloat64Approx(k)
+// 		if err != nil {
+// 			t.Fatalf("%g was not able to be converted into fraction", k)
+// 		}
+
+// 		if !conv.Equal(want) {
+// 			t.Fatalf("Float %g conversion wants %s but returned %s", k, want.String(), conv.String())
+// 		}
+// 	}
+// }
+
+func TestParseDecimal(t *testing.T) {
+	cases := map[string]frac.Fraction{
+		"-0.3": mustNew(t, 3, 10),
+		"0.2":  mustNew(t, 2, 10),
+		"0.5":  mustNew(t, 1, 2),
+		"2.5":  mustNew(t, 5, 2),
+	}
+
+	for k, want := range cases {
+		fmt.Printf("t: %v\n", t)
+		conv, err := frac.ParseDecimal(k)
+		if err != nil {
+			t.Fatalf("%s was not able to be converted into fraction, error: %v", k, err)
+		}
+		if !conv.Equal(want) {
+			t.Fatalf("String %s was incorrectly converted into %s", k, conv)
+		}
+	}
+}
+
 func TestFloat64(t *testing.T) {
 	a := mustNew(t, 2, 3)
 	if v := a.Float64(); !(v > 0.66 && v < 0.67) {
@@ -206,7 +246,7 @@ func TestParse_Valid(t *testing.T) {
 		"  12 / 6  ": "2",
 	}
 	for in, want := range cases {
-		fr, err := frac.Parse(in)
+		fr, err := frac.ParseFracString(in)
 		if err != nil {
 			t.Fatalf("Parse(%q): %v", in, err)
 		}
@@ -225,7 +265,7 @@ func TestParse_Invalid(t *testing.T) {
 		"-/7", "1/-",
 	}
 	for _, in := range bad {
-		if _, err := frac.Parse(in); err == nil {
+		if _, err := frac.ParseFracString(in); err == nil {
 			t.Fatalf("Parse(%q) should fail", in)
 		}
 	}
