@@ -39,7 +39,7 @@ f1, _ := fraction.NewI(3) // 3 in Fraction Form
 f2, _ := fraction.New(3, 2) // 3/2, nil
 
 // You can either do
-res, _ := f1.Add(f1, f2)
+res, _ := f1.Add(f2)
 // or
 res, _ := fraction.Add(f1, f2)
 ```
