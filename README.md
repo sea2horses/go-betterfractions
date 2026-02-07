@@ -24,7 +24,7 @@ f1, err := fraction.New(1,2) // 1/2, nil
 f2, err := fraction.New(2,3) // 2/3, nil
 _, err := fraction.New(1,0)  // ErrZeroDenominator
 ```
-**Addition:** This package also lets you create a fraction from an integer using the `NewI` function, and also provides built-in exports for `0` and `1`, done for easier use when cross-operating with integers and fractions
+**Addition:** This package also lets you create a fraction from an integer using the `NewI` function (which is completely safe), and also provides built-in exports for `0` and `1`, done for easier use when cross-operating with integers and fractions
 ```go
 f1 := fraction.NewI(5) // Equivalent to fraction.New(5,1)
 f2 := fraction.Zero() // Equivalent to fraction.New(0,1) or fraction.NewI(0)
@@ -35,7 +35,7 @@ f3 := fraction.One() // You get the gist
 
 You can perform operations either using the fraction's built-in methods or the versions that the library provides
 ```go
-f1, _ := fraction.NewI(3) // 3 in Fraction Form
+f1 := fraction.NewI(3) // 3 in Fraction Form
 f2, _ := fraction.New(3, 2) // 3/2, nil
 
 // You can either do
