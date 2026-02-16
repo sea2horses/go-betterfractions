@@ -113,4 +113,31 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Printf("Chain: Abs(Invert(Negate(%s))) = %s\n\n", c, chainRes2)
+
+	// Old way
+	a, err = fraction.New(3, 5)
+	if err != nil {
+		// ...
+	}
+	a = fraction.Negate(a)
+	b, err = fraction.New(8, 3)
+	if err != nil {
+		// ...
+	}
+	a, err = a.Add(b)
+	if err != nil {
+		// ...
+	}
+	a, err = a.Multiply(fraction.NewI(2))
+	if err != nil {
+		// ...
+	}
+
+	// New way
+	res, err := fraction.StartNew(3, 5).Negate().Sum(fraction.MustNew(8, 3)).Mult(fraction.NewI(2)).Result()
+	if err != nil {
+		// ...
+	}
+
+	fmt.Printf("%s = %s", a, res)
 }
