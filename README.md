@@ -42,6 +42,12 @@ f2, _ := fraction.New(3, 2) // 3/2, nil
 res, _ := f1.Add(f2)
 // or
 res, _ := fraction.Add(f1, f2)
+
+// IMPORTANT! You shouldn't be ignoring errors, this is purely for demonstration!
+// If you're ignoring errors anyway, you might as well use the MustNew function
+f3 := fraction.MustNew(2, 5) // A single return, useful for chaining
+// But:
+f4 := fraction.MustNew(3, 0) // WILL PANIC! since normal New() would return an error
 ```
 These operations include:
 - **Add** - Adds two fractions together
@@ -82,6 +88,59 @@ Also, as a courtesy from the original package, there's also a conversions to and
 floatValue := f1.Float64() // 0.5
 f7, err := fraction.FromFloat64(0.5) // 1/2, nil
 ```
+
+## New: Chain API for fluent multi-ops
+
+`Chain` enables concise, error-propagating operation sequences:
+
+```go
+a, _ := fraction.New(1, 2)
+b, _ := fraction.New(2, 3)
+
+res, err := fraction.Start(a).
+    Sum(b).
+    Sub(fraction.NewI(1)).
+    Result()
+```
+
+`Chain` stops at the first error and returns it from `Result()`.
+
+Another (more complicated) example:
+
+```go
+// Old way
+a, err := fraction.New(3, 5)
+if err != nil {
+    // ...
+}
+a = fraction.Negate(a)
+b, err := fraction.New(8, 3)
+if err != nil {
+    // ...
+}
+a, err = a.Add(b)
+if err != nil {
+    // ...
+}
+a, err = a.Multiply(fraction.NewI(2))
+if err != nil {
+    // ...
+}
+
+// New way
+
+// Careful !! as previously mentioned, fraction.MustNew(a, b) can panic if b is 0. In a situation where you have checked beforehand it isn't, you may use it
+res, err := fraction.StartNew(3, 5).Negate().Sum(fraction.MustNew(8, 3)).Mult(fraction.NewI(2)).Result()
+if err != nil {
+    // ...
+}
+
+fmt.Printf("%s = %s", a, res)
+```
+
+Output: `62/15 = 62/15` (which is mathematically correct)
+
+See [`fraction.Chain`](fraction.go) and [`fraction.Start`](fraction.go).
 
 ## Safety
 `betterfractions` tackles a point mentioned in the original `go-fraction` package, **overflow and bound checking**, this library is completely **overflow-safe**, although most likely you won't need the overflow-safeness, it is good to have!
