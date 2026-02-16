@@ -67,13 +67,24 @@ func New[T, K integer](numerator T, denominator K) (Fraction, error) {
 
 	n := uint64(abs(numerator))
 	d := uint64(abs(denominator))
-	gcf := gcd(n, d)
 
 	return Fraction{
-		numerator:   n / gcf,
-		denominator: d / gcf,
+		numerator:   n,
+		denominator: d,
 		negative:    sign,
-	}, nil
+	}.normalize(), nil
+}
+
+// MustNew creates a new fractrion with the given numerator and denominator
+//
+// Uses New as a helper, but this function panics in any scenario where New(a, b) returns an error,
+// This is useful for chaining, but must be used carefully
+func MustNew[T, K integer](numerator T, denominator K) Fraction {
+	v, err := New(numerator, denominator)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
 
 // NewI creates a fraction just based from an integer, the old `fractions` package did not have a function like this, so any time
@@ -480,6 +491,35 @@ func (f1 Fraction) Equal(f2 Fraction) bool {
 	return Equal(f1, f2)
 }
 
+// Negates a fraction, turning it from negative to positive or positive to negative
+func (f1 Fraction) Negate() Fraction {
+	if f1.numerator == 0 {
+		return zeroValue
+	}
+
+	return Fraction{numerator: f1.numerator, denominator: f1.denominator, negative: !f1.negative}
+}
+
+// Inverts a fraction's numerator with its denominator
+//
+// Can return ErrZeroDenominator if fraction's numerator is 0
+func (f1 Fraction) Invert() (Fraction, error) {
+	if f1.numerator == 0 {
+		return zeroValue, ErrZeroDenominator
+	}
+
+	return Fraction{numerator: f1.denominator, denominator: f1.numerator, negative: f1.negative}, nil
+}
+
+// Returns a fraction without its negative component
+func (f Fraction) Abs() Fraction {
+	return Fraction{
+		numerator:   f.numerator,
+		denominator: f.denominator,
+		negative:    false,
+	}
+}
+
 // Float64 returns the value of the fraction as a float64.
 func (f1 Fraction) Float64() float64 {
 	val := float64(f1.numerator) / float64(f1.denominator)
@@ -689,4 +729,113 @@ func getintsize(i uint64) uint8 {
 	}
 
 	return size
+}
+
+// ===========================
+// CHAIN CODE
+// ===========================
+
+type Chain struct {
+	v   Fraction
+	err error
+}
+
+// Starts a new `Chain` with an existing fraction
+func Start(f Fraction) Chain {
+	return Chain{v: f}
+}
+
+// Starts a new `Chain` with fraction components (Equivalent to fraction.Start(fraction.New(a, b)))
+// Except actually not, since fraction.New(a,b) returns an error, that piece of code is invalid, so this helper can actually catch it
+// and stop further operations safely
+func StartNew[T, K integer](n T, d K) Chain {
+	v, err := New(n, d)
+	return Chain{
+		v,
+		err,
+	}
+}
+
+// Starts a new `Chain` with an integer fraction (Equivalent to fraction.Start(fraction.NewI(x)))
+func StartI[T integer](x T) Chain {
+	return Chain{v: NewI(x)}
+}
+
+// Applies to a chain a binary function that returns a fraction and an error
+func binOperateChain(c Chain, v Fraction, f func(Fraction, Fraction) (Fraction, error)) Chain {
+	// Cannot operate on an errored-out chain because of error contamination
+	if c.err != nil {
+		return c
+	}
+	v, err := f(c.v, v)
+	c.v, c.err = v, err
+	return c
+}
+
+// Applies to a chain a unary function that returns a fraction and an error
+func unsafeUnOperateChain(c Chain, f func(Fraction) (Fraction, error)) Chain {
+	// Cannot operate on an errored-out chain because of error contamination
+	if c.err != nil {
+		return c
+	}
+	v, err := f(c.v)
+	c.v, c.err = v, err
+	return c
+}
+
+// Applies to a chain a unary function that returns a fraction
+func safeUnOperateChain(c Chain, f func(Fraction) Fraction) Chain {
+	// Cannot operate on an errored-out chain because of error contamination
+	if c.err != nil {
+		return c
+	}
+	v := f(c.v)
+	c.v = v
+	return c
+}
+
+// Applies to a chain a unary function that returns a fraction and an error
+
+// Sums a Chain's current fraction to the one provided
+func (c Chain) Sum(v Fraction) Chain {
+	return binOperateChain(c, v, Add)
+}
+
+// Subtracts a Chain's current fraction to the one provided
+func (c Chain) Sub(v Fraction) Chain {
+	return binOperateChain(c, v, Subtract)
+}
+
+// Multiplies a Chain's current fraction with the one provided
+func (c Chain) Mult(v Fraction) Chain {
+	return binOperateChain(c, v, Multiply)
+}
+
+// Divides a Chain's current fraction with the one provided
+func (c Chain) Div(v Fraction) Chain {
+	return binOperateChain(c, v, Divide)
+}
+
+// Inverts a Chain's current fraction
+func (c Chain) Invert() Chain {
+	return unsafeUnOperateChain(c, Invert)
+}
+
+// Negates a Chain's current fraction
+func (c Chain) Negate() Chain {
+	return safeUnOperateChain(c, Negate)
+}
+
+// Sets a Chain's current fraction's negative component to False (essentially getting the absolute value)
+func (c Chain) Abs() Chain {
+	return safeUnOperateChain(c, Abs)
+}
+
+// Gets the result from a chain
+//
+// This function returns an error if any of the operations made on a chain gave an error, precisely
+// the FIRST error that occurred on the chain, so looking at the error type will be useful to debug
+// which operation caused it
+func (c Chain) Result() (Fraction, error) {
+	return c.v, c.err
 }

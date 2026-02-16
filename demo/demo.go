@@ -92,4 +92,25 @@ func main() {
 	if err != nil {
 		fmt.Printf("Divide error (as expected): %v\n", err)
 	}
+
+	// Method versions: Invert, Negate, Abs
+	inv, err := c.Invert()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("c.Invert() = %s; c.Negate() = %s; c.Negate().Abs() = %s\n\n",
+		inv, c.Negate(), c.Negate().Abs())
+
+	// Chain API
+	chainRes, err := frac.Start(a).Sum(b).Sub(mustNew(1, 6)).Result()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Chain: (%s + %s - 1/6) = %s\n", a, b, chainRes)
+
+	chainRes2, err := frac.Start(c).Negate().Invert().Abs().Result()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Chain: Abs(Invert(Negate(%s))) = %s\n\n", c, chainRes2)
 }

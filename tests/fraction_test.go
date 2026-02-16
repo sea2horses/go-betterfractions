@@ -270,3 +270,55 @@ func TestParse_Invalid(t *testing.T) {
 		}
 	}
 }
+
+func TestMethod_NegateAbsInvert(t *testing.T) {
+    a := mustNew(t, 2, 3)
+
+    if got := a.Negate(); got.String() != "-2/3" {
+        t.Fatalf("Negate() = %v, want -2/3", got)
+    }
+    if got := a.Negate().Abs(); got.String() != "2/3" {
+        t.Fatalf("Abs(Negate()) = %v, want 2/3", got)
+    }
+
+    ai, err := a.Invert()
+    if err != nil {
+        t.Fatalf("Invert() error: %v", err)
+    }
+    if ai.String() != "3/2" {
+        t.Fatalf("Invert() = %v, want 3/2", ai)
+    }
+}
+
+func TestMethod_InvertZeroError(t *testing.T) {
+    z := frac.NewI(0)
+    if _, err := z.Invert(); err == nil {
+        t.Fatal("Invert(0) should error")
+    }
+}
+
+func TestChain_Basic(t *testing.T) {
+    a := mustNew(t, 1, 2)
+    b := mustNew(t, 2, 3)
+    c := mustNew(t, 1, 6)
+
+    res, err := frac.Start(a).Sum(b).Sub(c).Result()
+    if err != nil {
+        t.Fatal(err)
+    }
+    if res.String() != "1" {
+        t.Fatalf("chain result = %v, want 1", res)
+    }
+}
+
+func TestChain_WithInvertNegateAbs(t *testing.T) {
+    // ((-1/2).Invert()).Abs() = 2
+    a := mustNew(t, -1, 2)
+    res, err := frac.Start(a).Invert().Abs().Result()
+    if err != nil {
+        t.Fatal(err)
+    }
+    if res.String() != "2" {
+        t.Fatalf("chain result = %v, want 2", res)
+    }
+}
